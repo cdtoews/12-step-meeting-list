@@ -862,18 +862,19 @@ function tsml_get_meetings($arguments=array(), $from_cache=true) {
 		//from database
 		$meetings = array();
 
+		//can specify post_status (for PR #33)
 		if (empty($arguments['post_status'])) {
-			$post_search_status = null;
-		}elseif (is_array($arguments['post_status'])) {
-			$post_search_status =  implode(',', $arguments['post_status']);
-		} else{
-			$post_search_status =  $arguments['post_status'];
+			$arguments['post_status'] = 'publish';
+		} elseif (is_array($arguments['post_status'])) {
+			$arguments['post_status'] = array_map('sanitize_title', $arguments['post_status']);
+		} else {
+			$arguments['post_status'] = sanitize_title($arguments['post_status']);
 		}
 
 		$posts = get_posts(array(
 			'post_type'			=> 'tsml_meeting',
-			'post_status'   => $post_search_status,
 			'numberposts'		=> -1,
+			'post_status'		=> $arguments['post_status'],
 		));
 
 		$meeting_meta = tsml_get_meta('tsml_meeting');
@@ -1165,6 +1166,11 @@ function tsml_import_buffer_set($meetings, $data_source=null) {
 		$meeting['row'] = $row_counter;
 		
 	}
+
+	//allow user-defined function to filter the meetings (for gal-aa.org)
+	if (function_exists('tsml_import_filter')) {
+		$meetings = array_filter($meetings, 'tsml_import_filter');
+	}
 	
 	//dd($meetings);
 	
@@ -1402,8 +1408,8 @@ function tsml_sort_meetings($a, $b) {
 	}
 
 	//get the user-settable order of days
-	$a_day_index = strlen($a['day']) ? array_search($a['day'], $tsml_days_order) : false;
-	$b_day_index = strlen($b['day']) ? array_search($b['day'], $tsml_days_order) : false;
+	$a_day_index = isset($a['day']) && strlen($a['day']) ? array_search($a['day'], $tsml_days_order) : false;
+	$b_day_index = isset($b['day']) && strlen($b['day']) ? array_search($b['day'], $tsml_days_order) : false;
 	if ($a_day_index === false && $b_day_index !== false) {
 		return 1;
 	} elseif ($a_day_index !== false && $b_day_index === false) {
